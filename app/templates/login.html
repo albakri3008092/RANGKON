@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block bodyclass %}center{% endblock %}
+{% block content %}
+<form class="card narrow" method="post" action="/login">
+  <h1>RANGKON</h1>
+  <p class="muted">Sistem panggilan berkumpul &amp; kehadiran</p>
+  <input type="hidden" name="next" value="{{ next }}">
+  <label>Kata laluan admin<input type="password" name="password" autofocus required></label>
+  <button class="primary">Log masuk</button>
+</form>
+{% endblock %}

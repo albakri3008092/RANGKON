@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block bodyclass %}center{% endblock %}
+{% block content %}
+<div class="card narrow public">
+  <div class="muted">{{ member.unit }}</div>
+  <h1>{{ event.title }}</h1>
+  <p><b>{{ (member.rank ~ " " ~ member.name)|trim }}</b></p>
+  <p>Tempat: {{ event.location }}<br>Masa: {{ event.starts_at|dt }}</p>
+  {% if note %}<div class="flash flash-ok big">{{ note }}</div>{% endif %}
+
+  {% if inv.rsvp == "accepted" %}
+    <div class="badge b-accepted big">PANGGILAN DITERIMA</div>
+  {% elif inv.rsvp == "declined" %}
+    <div class="badge b-declined big">ANDA MENOLAK</div>
+  {% endif %}
+
+  {% if inv.rsvp != "accepted" %}
+  <form method="post" action="/c/{{ inv.token }}/rsvp">
+    <input type="hidden" name="answer" value="accepted">
+    <button class="primary huge">TERIMA</button>
+  </form>
+  {% endif %}
+  {% if inv.rsvp is none %}
+  <form method="post" action="/c/{{ inv.token }}/rsvp">
+    <input type="hidden" name="answer" value="declined">
+    <button class="huge">TOLAK</button>
+  </form>
+  {% endif %}
+
+  <hr>
+  {% if inv.attended_at %}
+    <div class="badge b-attended big">HADIR &middot; {{ inv.attended_at|dt }}</div>
+  {% elif checkin_open %}
+    <form method="post" action="/c/{{ inv.token }}/checkin">
+      <button class="success huge">Saya sudah sampai (sahkan hadir)</button>
+    </form>
+  {% else %}
+    <p class="muted">Butang sahkan hadir akan dibuka menjelang masa berkumpul.</p>
+  {% endif %}
+</div>
+{% endblock %}

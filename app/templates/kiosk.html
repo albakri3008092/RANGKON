@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card narrow kiosk">
+  <a href="/events/{{ event.id }}">&larr; Dashboard</a>
+  <h1>Kaunter Kehadiran</h1>
+  <p class="muted">{{ event.title }} &middot; {{ event.location }}</p>
+  {% if result %}<div class="flash flash-{{ 'ok' if result.ok else 'error' }} big">{{ result.message }}</div>{% endif %}
+  <form method="post">
+    <label>No. telefon ahli<input name="phone" inputmode="tel" autofocus required></label>
+    <button class="primary">Rekod hadir</button>
+  </form>
+</div>
+{% endblock %}

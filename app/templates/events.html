@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row-head">
+  <h1>Panggilan Berkumpul</h1>
+  <button class="primary" onclick="document.getElementById('new-event').showModal()">+ Panggilan baru</button>
+</div>
+{% if not events %}
+<div class="card empty">Belum ada panggilan. Tekan <b>+ Panggilan baru</b> untuk mula.</div>
+{% endif %}
+<div class="grid">
+{% for e in events %}
+  {% set s = summaries[e.id] %}
+  <a class="card event-card" href="/events/{{ e.id }}">
+    <h3>{{ e.title }}</h3>
+    <div class="muted">{{ e.starts_at|dt }} &middot; {{ e.location }}</div>
+    <div class="mini-stats">
+      <span><b>{{ s.total }}</b> dipanggil</span>
+      <span class="c-accepted"><b>{{ s.accepted }}</b> terima</span>
+      <span class="c-attended"><b>{{ s.attended }}</b> hadir</span>
+    </div>
+  </a>
+{% endfor %}
+</div>
+
+<dialog id="new-event">
+  <form method="post" action="/events" class="form">
+    <h2>Panggilan baru</h2>
+    <label>Tajuk<input name="title" required placeholder="cth. Perhimpunan Bulanan"></label>
+    <label>Lokasi<input name="location" required placeholder="cth. Padang Kawad"></label>
+    <label>Tarikh &amp; masa<input type="datetime-local" name="starts_at" required></label>
+    <label>Mesej WhatsApp
+      <textarea name="message" rows="10">{{ default_message }}</textarea>
+      <small class="muted">Kod: {nama} {unit} {tajuk} {lokasi} {masa} {pautan}</small>
+    </label>
+    <div class="actions">
+      <button type="button" onclick="this.closest('dialog').close()">Batal</button>
+      <button class="primary">Simpan</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
