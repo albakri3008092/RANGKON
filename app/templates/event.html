@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }} - Rangkon{% endblock %}
+{% block mainclass %}container wide{% endblock %}
+{% block content %}
+<div class="row-head">
+  <div>
+    <h1>{{ event.title }}</h1>
+    <div class="muted">{{ event.starts_at|dt }} &middot; {{ event.location }}</div>
+  </div>
+  <div class="btns">
+    <button class="primary" onclick="document.getElementById('send').showModal()">Hantar WhatsApp</button>
+    <a class="button" href="/events/{{ event.id }}/kiosk">Kaunter kehadiran</a>
+    <a class="button" href="/events/{{ event.id }}/export.csv">Muat turun CSV</a>
+  </div>
+</div>
+
+<section id="overall" class="stats"></section>
+
+<h2>Mengikut unit</h2>
+<section id="units" class="unit-grid"></section>
+
+<div class="tabs" id="tabs">
+  <button data-unit="" class="active">Semua</button>
+  {% for u in units %}<button data-unit="{{ u }}">{{ u }}</button>{% endfor %}
+</div>
+<div class="filters">
+  <input id="search" placeholder="Cari nama / telefon">
+  <select id="filter">
+    <option value="">Semua status</option>
+    <option value="no_response">Belum terima</option>
+    <option value="accepted">Sudah terima</option>
+    <option value="declined">Tolak</option>
+    <option value="attended">Hadir</option>
+    <option value="not_attended">Belum hadir</option>
+    <option value="failed">Gagal dihantar</option>
+  </select>
+  <form method="post" action="/events/{{ event.id }}/resend-failed"><button>Hantar semula yang gagal</button></form>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr>
+    <th>Unit</th><th>Nama</th><th>Telefon</th><th>WhatsApp</th><th>Penerimaan</th><th>Hadir</th><th></th>
+  </tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+</div>
+
+<details class="card danger-zone">
+  <summary>Tetapan</summary>
+  <form method="post" action="/events/{{ event.id }}/delete" onsubmit="return confirm('Padam panggilan ini dan semua rekodnya?')">
+    <button class="danger">Padam panggilan</button>
+  </form>
+</details>
+
+<dialog id="send">
+  <form method="post" action="/events/{{ event.id }}/send" class="form">
+    <h2>Hantar panggilan WhatsApp</h2>
+    <p class="muted">Pilih unit. Ahli yang sudah dipanggil tidak akan dihantar dua kali.</p>
+    <div class="checks">
+      {% for u in units %}
+      <label class="check"><input type="checkbox" name="target_units" value="{{ u }}" checked>
+        {{ u }} <span class="muted">({{ member_counts.get(u, 0) }} ahli aktif)</span></label>
+      {% endfor %}
+    </div>
+    <label>Contoh mesej<pre class="preview">{{ sample }}</pre></label>
+    {% if provider == "simulate" %}<p class="flash flash-error">Mod SIMULASI: tiada mesej sebenar dihantar.</p>{% endif %}
+    <div class="actions">
+      <button type="button" onclick="this.closest('dialog').close()">Batal</button>
+      <button class="primary">Hantar sekarang</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>window.RANGKON = {eventId: {{ event.id }}, units: {{ units|tojson }}, simulate: {{ (provider == "simulate")|tojson }}};</script>
+<script src="/static/dashboard.js"></script>
+{% endblock %}

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Rangkon{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="{% block bodyclass %}{% endblock %}">
+{% if request.session.get("admin") %}
+<header class="topbar">
+  <a class="brand" href="/events">RANGKON</a>
+  <nav>
+    <a href="/events" class="navicon {% if request.url.path.startswith('/events') %}active{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zm13.5 1A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+      <span>Panggilan</span>
+    </a>
+    <a href="/members" class="navicon {% if request.url.path.startswith('/members') %}active{% endif %}">
+      <svg viewBox="0 0 24 24"><path d="M12 3C7.6 3 4 4.3 4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6c0-1.7-3.6-3-8-3zm0 2c3.9 0 6 1.1 6 1s-2.1 1-6 1-6-1-6-1 2.1-1 6-1zm6 13c0 .3-2.1 1-6 1s-6-.7-6-1v-2.3c1.5.8 3.7 1.3 6 1.3s4.5-.5 6-1.3zm0-4.5c0 .3-2.1 1-6 1s-6-.7-6-1v-2.3c1.5.8 3.7 1.3 6 1.3s4.5-.5 6-1.3zM18 9c0 .3-2.1 1-6 1S6 9.3 6 9V8.2C7.5 8.7 9.6 9 12 9s4.5-.3 6-.8z"/></svg>
+      <span>Pangkalan Data</span>
+    </a>
+  </nav>
+  <span class="mode mode-{{ provider }}">{{ "WhatsApp: SIMULASI" if provider == "simulate" else "WhatsApp: LIVE" }}</span>
+  <form method="post" action="/logout"><button class="link">Log keluar</button></form>
+</header>
+{% endif %}
+<main class="{% block mainclass %}container{% endblock %}">
+  {% if flash %}<div class="flash flash-{{ flash.kind }}">{{ flash.message }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block mainclass %}container wide{% endblock %}
+{% block content %}
+<div class="row-head">
+  <h1>Pangkalan Data Ahli</h1>
+  <div class="btns">
+    <button class="primary" onclick="openMember()">+ Tambah ahli</button>
+    <button onclick="document.getElementById('import').showModal()">Muat naik Excel/CSV</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <a href="/members" class="{% if not unit %}active{% endif %}">Semua ({{ counts.values()|sum }})</a>
+  {% for u in units %}
+  <a href="/members?unit={{ u|urlencode }}" class="{% if unit == u %}active{% endif %}">{{ u }} ({{ counts.get(u, 0) }})</a>
+  {% endfor %}
+</div>
+<form class="filters" method="get">
+  <input type="hidden" name="unit" value="{{ unit }}">
+  <input name="q" value="{{ q }}" placeholder="Cari nama / telefon / no. tentera">
+  <button>Cari</button>
+</form>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Unit</th><th>Pangkat</th><th>Nama</th><th>No. Tentera</th><th>Telefon</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for m in members %}
+    <tr class="{% if not m.active %}inactive{% endif %}">
+      <td><span class="pill">{{ m.unit }}</span></td>
+      <td>{{ m.rank }}</td>
+      <td>{{ m.name }}</td>
+      <td>{{ m.service_no }}</td>
+      <td>+{{ m.phone }}</td>
+      <td>{{ "Aktif" if m.active else "Tidak aktif" }}</td>
+      <td class="row-actions">
+        <button class="icon" title="Kemas kini" onclick='openMember({{ {"id": m.id, "name": m.name, "phone": m.phone, "unit": m.unit, "rank": m.rank, "service_no": m.service_no}|tojson }})'>&#9998;</button>
+        <form method="post" action="/members/{{ m.id }}/toggle"><button class="icon" title="Aktif / tidak aktif">{{ "&#10074;&#10074;"|safe if m.active else "&#9654;"|safe }}</button></form>
+        <form method="post" action="/members/{{ m.id }}/delete" onsubmit="return confirm('Padam {{ m.name }}?')"><button class="icon danger" title="Padam">&#10005;</button></form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="empty">Tiada ahli. Tekan <b>+ Tambah ahli</b> atau muat naik Excel/CSV.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<button class="fab" title="Tambah ahli" onclick="openMember()">+</button>
+
+<dialog id="member">
+  <form method="post" action="/members" class="form" id="member-form">
+    <h2 id="member-title">Tambah ahli</h2>
+    <label>Unit
+      <select name="unit" required>
+        {% for u in units %}<option {% if unit == u %}selected{% endif %}>{{ u }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Pangkat<input name="rank" placeholder="cth. Kpl"></label>
+    <label>Nama<input name="name" required></label>
+    <label>No. Tentera<input name="service_no"></label>
+    <label>No. telefon (WhatsApp)<input name="phone" required placeholder="cth. 012-3456789"></label>
+    <div class="actions">
+      <button type="button" onclick="this.closest('dialog').close()">Batal</button>
+      <button class="primary">Simpan</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="import">
+  <form method="post" action="/members/import" enctype="multipart/form-data" class="form">
+    <h2>Muat naik Excel / CSV</h2>
+    <p class="muted">Baris pertama mesti tajuk lajur: <b>nama</b>, <b>telefon</b>, dan pilihan <b>unit</b>, <b>pangkat</b>, <b>no tentera</b>. Nombor yang sudah ada akan dikemas kini.</p>
+    <input type="file" name="file" accept=".csv,.xlsx" required>
+    <label>Unit lalai (jika lajur unit kosong)
+      <select name="unit"><option value="">-- tiada --</option>{% for u in units %}<option>{{ u }}</option>{% endfor %}</select>
+    </label>
+    <a href="/static/contoh-ahli.csv" download>Muat turun contoh fail</a>
+    <div class="actions">
+      <button type="button" onclick="this.closest('dialog').close()">Batal</button>
+      <button class="primary">Muat naik</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>
+function openMember(m) {
+  const f = document.getElementById("member-form");
+  f.reset();
+  f.action = m ? "/members/" + m.id : "/members";
+  document.getElementById("member-title").textContent = m ? "Kemas kini ahli" : "Tambah ahli";
+  if (m) for (const k of ["name", "phone", "unit", "rank", "service_no"]) f.elements[k].value = m[k] || "";
+  document.getElementById("member").showModal();
+}
+</script>
+{% endblock %}
