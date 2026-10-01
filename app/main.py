@@ -42,6 +42,11 @@ app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, max_age=60
 @app.middleware("http")
 async def same_origin_posts(request: Request, call_next):
     if request.method == "POST" and not request.url.path.startswith("/webhook/"):
+        site = request.headers.get("sec-fetch-site")
+        if site:
+            if site == "cross-site":
+                return PlainTextResponse("Permintaan luar ditolak", status_code=403)
+            return await call_next(request)
         origin = request.headers.get("origin") or request.headers.get("referer")
         allowed = {
             request.headers.get("host"),

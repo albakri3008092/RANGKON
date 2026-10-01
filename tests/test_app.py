@@ -257,3 +257,10 @@ def test_cloud_webhook_requires_signature(client, monkeypatch):
 def test_cross_origin_post_rejected(admin):
     r = admin.post("/members/1/delete", headers={"origin": "https://evil.example"})
     assert r.status_code == 403
+    r = admin.post("/members/1/delete", headers={"sec-fetch-site": "cross-site"})
+    assert r.status_code == 403
+    r = admin.post(
+        "/members/1/delete",
+        headers={"sec-fetch-site": "same-origin", "origin": "https://proxy.example"},
+    )
+    assert r.status_code == 200
