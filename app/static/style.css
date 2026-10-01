@@ -30,6 +30,7 @@ button.huge { width:100%; font-size:20px; padding:16px; margin:6px 0; font-weigh
 input, select, textarea { font:inherit; padding:8px 10px; border:1px solid var(--line); border-radius:8px; width:100%; background:#fff; }
 label { display:flex; flex-direction:column; gap:4px; font-size:14px; margin-bottom:10px; }
 .form { display:flex; flex-direction:column; min-width:min(520px, 90vw); }
+.narrow .form { min-width:0; }
 .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:8px; }
 dialog { border:none; border-radius:14px; padding:22px; max-height:90vh; }
 dialog::backdrop { background:#0007; }
