@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
@@ -341,7 +341,38 @@ def event_page(request: Request, event_id: int, db: Db):
             "unit": settings.units[0] if settings.units else "",
         },
     )
-    return render(request, "event.html", event=event, member_counts=member_counts, sample=sample)
+    share_text = services.group_message(event)
+    return render(
+        request,
+        "event.html",
+        event=event,
+        member_counts=member_counts,
+        sample=sample,
+        share_text=share_text,
+        share_url="https://wa.me/?text=" + quote(share_text),
+        open_share=request.query_params.get("kongsi") == "1",
+    )
+
+
+@app.post("/events/{event_id}/share", dependencies=[Admin])
+def share_event(
+    request: Request,
+    event_id: int,
+    db: Db,
+    target_units: Annotated[list[str], Form()] = [],  # noqa: B006
+):
+    event = get_event(db, event_id)
+    chosen = [u for u in target_units if u in settings.units]
+    if not chosen:
+        flash(request, "Pilih sekurang-kurangnya satu unit", "error")
+        return redirect(f"/events/{event_id}")
+    ids = services.create_invitations(db, event, chosen, status="group")
+    flash(
+        request,
+        f"{len(ids)} ahli {', '.join(chosen)} dimasukkan ke senarai panggilan. "
+        "Salin mesej dan tampal ke grup WhatsApp.",
+    )
+    return redirect(f"/events/{event_id}?kongsi=1")
 
 
 @app.post("/events/{event_id}/send", dependencies=[Admin])
@@ -542,6 +573,28 @@ def public_checkin(request: Request, token: str, db: Db):
     services.mark_attended(inv, "link")
     db.commit()
     return _public(request, inv, "Kehadiran anda telah direkod.")
+
+
+def _by_code(db: Session, code: str) -> Event:
+    event = db.scalar(select(Event).where(Event.public_code == code))
+    if event is None:
+        raise HTTPException(404, "Pautan tidak sah")
+    return event
+
+
+@app.get("/p/{code}", response_class=HTMLResponse)
+def group_page(request: Request, code: str, db: Db):
+    return render(request, "group.html", event=_by_code(db, code), error=None, ident="")
+
+
+@app.post("/p/{code}", response_class=HTMLResponse)
+def group_identify(request: Request, code: str, db: Db, ident: Annotated[str, Form()]):
+    event = _by_code(db, code)
+    inv = services.find_invitation(db, event, ident)
+    if inv is None:
+        error = "Nombor ini tiada dalam senarai panggilan. Semak semula atau hubungi pegawai unit."
+        return render(request, "group.html", event=event, error=error, ident=ident)
+    return redirect(f"/c/{inv.token}")
 
 
 # --- WhatsApp Cloud API webhook ----------------------------------------------

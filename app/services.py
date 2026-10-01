@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from datetime import datetime, timedelta
 
 from openpyxl import load_workbook
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, sessionmaker
 
 from .config import settings
@@ -21,6 +21,16 @@ DEFAULT_MESSAGE = (
     "WAJIB balas *TERIMA* untuk mengesahkan panggilan ini diterima "
     "(atau *TOLAK* jika tidak dapat hadir).\n"
     "Atau tekan pautan: {pautan}"
+)
+
+GROUP_MESSAGE = (
+    "*PANGGILAN BERKUMPUL*\n"
+    "*{tajuk}*\n"
+    "Tempat: {lokasi}\n"
+    "Masa: {masa}\n\n"
+    "WAJIB tekan pautan di bawah, masukkan no. telefon / no. tentera anda "
+    "dan tekan *TERIMA* (atau *TOLAK* jika tidak dapat hadir):\n"
+    "{pautan}"
 )
 
 ACCEPT_WORDS = {
@@ -211,14 +221,46 @@ def import_members_csv(db: Session, content: str, default_unit: str | None) -> d
 # --- invitations -------------------------------------------------------------
 
 
-def create_invitations(db: Session, event: Event, units: Iterable[str]) -> list[int]:
+def event_link(event: Event) -> str:
+    return f"{settings.public_base_url}/p/{event.public_code}"
+
+
+def group_message(event: Event) -> str:
+    return GROUP_MESSAGE.format(
+        tajuk=event.title,
+        lokasi=event.location,
+        masa=format_dt(event.starts_at),
+        pautan=event_link(event),
+    )
+
+
+def find_invitation(db: Session, event: Event, ident: str) -> Invitation | None:
+    """Look up a member's invitation for an event by phone number or service number."""
+    ident = ident.strip()
+    if not ident:
+        return None
+    query = select(Invitation).join(Member).where(Invitation.event_id == event.id)
+    phone = normalize_phone(ident)
+    if phone:
+        inv = db.scalar(query.where((Invitation.phone == phone) | (Member.phone == phone)))
+        if inv:
+            return inv
+    service_no = re.sub(r"\s+", "", ident).upper()
+    return db.scalar(
+        query.where(func.upper(func.replace(Member.service_no, " ", "")) == service_no)
+    )
+
+
+def create_invitations(
+    db: Session, event: Event, units: Iterable[str], status: str = "pending"
+) -> list[int]:
     units = list(units)
     existing = set(db.scalars(select(Invitation.member_id).where(Invitation.event_id == event.id)))
     members = db.scalars(
         select(Member).where(Member.active.is_(True), Member.unit.in_(units))
     ).all()
     new = [
-        Invitation(event_id=event.id, member_id=m.id, unit=m.unit, phone=m.phone)
+        Invitation(event_id=event.id, member_id=m.id, unit=m.unit, phone=m.phone, status=status)
         for m in members
         if m.id not in existing
     ]
@@ -331,6 +373,7 @@ def _invitation_for_reply(db: Session, msg: dict) -> Invitation | None:
 def _empty_stats() -> dict[str, int]:
     return {
         "total": 0,
+        "group": 0,
         "pending": 0,
         "failed": 0,
         "sent": 0,
@@ -345,7 +388,9 @@ def _empty_stats() -> dict[str, int]:
 
 def _add(stats: dict[str, int], inv: Invitation) -> None:
     stats["total"] += 1
-    if inv.status == "pending":
+    if inv.status == "group":
+        stats["group"] += 1
+    elif inv.status == "pending":
         stats["pending"] += 1
     elif inv.status == "failed":
         stats["failed"] += 1
@@ -392,6 +437,7 @@ def event_dashboard(db: Session, event: Event) -> dict:
                 "phone": inv.phone,
                 "unit": inv.unit,
                 "status": inv.status,
+                "wa_sent": inv.wa_message_id is not None,
                 "error": inv.error,
                 "rsvp": inv.rsvp,
                 "rsvp_at": format_dt(inv.rsvp_at),

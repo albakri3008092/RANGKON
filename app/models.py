@@ -42,6 +42,7 @@ class Event(Base):
     location: Mapped[str] = mapped_column(String(200))
     starts_at: Mapped[datetime] = mapped_column(DateTime)
     message: Mapped[str] = mapped_column(Text)
+    public_code: Mapped[str] = mapped_column(String(32), unique=True, default=_token)
     created_at: Mapped[datetime] = mapped_column(DateTime)
 
     invitations: Mapped[list["Invitation"]] = relationship(
@@ -49,7 +50,7 @@ class Event(Base):
     )
 
 
-STATUS_RANK = {"pending": 0, "failed": 0, "sent": 1, "delivered": 2, "read": 3}
+STATUS_RANK = {"group": 0, "pending": 0, "failed": 0, "sent": 1, "delivered": 2, "read": 3}
 
 
 class Invitation(Base):

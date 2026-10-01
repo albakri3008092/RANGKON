@@ -264,3 +264,35 @@ def test_cross_origin_post_rejected(admin):
         headers={"sec-fetch-site": "same-origin", "origin": "https://proxy.example"},
     )
     assert r.status_code == 200
+
+
+def test_group_link_flow(admin):
+    admin.post(
+        "/members",
+        data={"name": "Ali", "phone": "0123456789", "unit": "Bn 1", "service_no": "T 1001"},
+    )
+    _member(admin, "Abu", "0131111111", "Bn 2")
+    _member(admin, "Siti", "0142222222", "MK Rej")
+    event_id = _event(admin)
+    r = admin.post(f"/events/{event_id}/share", data={"target_units": ["Bn 1", "Bn 2"]})
+    assert "2 ahli" in r.text and "https://wa.me/?text=" in r.text
+    with SessionLocal() as db:
+        code = db.get(main.Event, event_id).public_code
+    assert f"https://rangkon.test/p/{code}" in r.text
+
+    page = admin.get(f"/p/{code}")
+    assert page.status_code == 200 and "no. tentera" in page.text
+    r = admin.post(f"/p/{code}", data={"ident": "t1001"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"].startswith("/c/")
+    admin.post(r.headers["location"] + "/rsvp", data={"answer": "accepted"})
+    r = admin.post(f"/p/{code}", data={"ident": "013-1111111"}, follow_redirects=False)
+    admin.post(r.headers["location"] + "/rsvp", data={"answer": "declined"})
+    for ident in ("0142222222", "0199999999", " "):
+        assert "tiada dalam senarai" in admin.post(f"/p/{code}", data={"ident": ident}).text
+
+    d = admin.get(f"/api/events/{event_id}/dashboard").json()
+    assert d["units"]["Bn 1"]["accepted"] == 1 and d["units"]["Bn 2"]["declined"] == 1
+    assert d["units"]["MK Rej"]["total"] == 0
+    assert d["overall"]["group"] == 2 and d["overall"]["sent"] == 0
+    assert admin.post(f"/events/{event_id}/share", data={"target_units": ["Bn 1"]}).status_code
+    assert admin.get(f"/api/events/{event_id}/dashboard").json()["overall"]["total"] == 2

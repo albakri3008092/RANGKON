@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block bodyclass %}center{% endblock %}
+{% block content %}
+<div class="card narrow public">
+  <div class="muted">Panggilan berkumpul</div>
+  <h1>{{ event.title }}</h1>
+  <p>Tempat: {{ event.location }}<br>Masa: {{ event.starts_at|dt }}</p>
+  {% if error %}<div class="flash flash-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/p/{{ event.public_code }}" class="form">
+    <label>No. telefon atau no. tentera
+      <input name="ident" value="{{ ident }}" required autofocus inputmode="text" placeholder="cth. 012-3456789">
+    </label>
+    <button class="primary huge">Seterusnya</button>
+  </form>
+</div>
+{% endblock %}

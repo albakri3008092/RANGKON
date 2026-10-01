@@ -9,14 +9,22 @@ diasingkan mengikut unit (lalai: **MK Rej, Bn 1, Bn 2, Bn 3**).
    atau muat naik Excel/CSV (lajur: `unit, pangkat, nama, no tentera, telefon`; contoh di
    `app/static/contoh-ahli.csv`). Nombor yang sudah wujud akan dikemas kini.
 2. **Panggilan baru** — tajuk, lokasi, masa dan teks mesej (kod `{nama} {unit} {tajuk} {lokasi} {masa} {pautan}`).
-3. **Hantar WhatsApp** — pilih unit. Setiap ahli menerima pautan peribadi.
-4. Penerima **wajib TERIMA**: balas `TERIMA` / `TOLAK` di WhatsApp, atau tekan butang pada pautan.
+3. Hantar panggilan, pilih salah satu:
+   - **Kongsi ke grup WhatsApp** (percuma) — pilih unit, kemudian salin mesej (satu pautan umum)
+     dan tampal ke grup / Broadcast List WhatsApp. Ahli tekan pautan, masukkan no. telefon atau
+     no. tentera, lalu TERIMA / TOLAK. Status sampai/dibaca tidak dijejak dalam mod ini.
+   - **Hantar WhatsApp (API)** — Meta Cloud API (berbayar setiap template). Setiap ahli menerima
+     pautan peribadi.
+4. Penerima **wajib TERIMA**: balas `TERIMA` / `TOLAK` di WhatsApp (mod API), atau tekan butang pada pautan.
    Hanya jawapan TERIMA dikira sebagai "Diterima". Status WhatsApp (dihantar / sampai / dibaca)
    ditunjuk berasingan sebagai maklumat.
 5. **Kehadiran** — ahli tekan "Saya sudah sampai" pada pautan (dibuka 2 jam sebelum masa berkumpul),
    atau petugas guna **Kaunter kehadiran** (taip no. telefon), atau admin tanda terus di dashboard.
 6. **Dashboard** — ringkasan keseluruhan + kad setiap unit (diterima / belum / tolak / hadir),
    jadual boleh ditapis ikut unit & status, auto-segar setiap 5 saat, muat turun CSV.
+
+Pautan dalam mesej guna `RANGKON_PUBLIC_BASE_URL`, jadi aplikasi mesti boleh dicapai dari
+internet (hos awam) supaya ahli boleh membukanya dari telefon.
 
 ## Jalankan
 

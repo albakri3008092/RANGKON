@@ -8,7 +8,8 @@
     <div class="muted">{{ event.starts_at|dt }} &middot; {{ event.location }}</div>
   </div>
   <div class="btns">
-    <button class="primary" onclick="document.getElementById('send').showModal()">Hantar WhatsApp</button>
+    <button class="primary" onclick="document.getElementById('share').showModal()">Kongsi ke grup WhatsApp</button>
+    <button onclick="document.getElementById('send').showModal()">Hantar WhatsApp (API)</button>
     <a class="button" href="/events/{{ event.id }}/kiosk">Kaunter kehadiran</a>
     <a class="button" href="/events/{{ event.id }}/export.csv">Muat turun CSV</a>
   </div>
@@ -52,6 +53,29 @@
   </form>
 </details>
 
+<dialog id="share">
+  <div class="form">
+    <h2>Kongsi ke grup WhatsApp (percuma)</h2>
+    <form method="post" action="/events/{{ event.id }}/share" class="form">
+      <p class="muted"><b>Langkah 1.</b> Pilih unit yang dipanggil. Ahli aktif unit ini akan masuk senarai dashboard sebagai BELUM TERIMA.</p>
+      <div class="checks">
+        {% for u in units %}
+        <label class="check"><input type="checkbox" name="target_units" value="{{ u }}" checked>
+          {{ u }} <span class="muted">({{ member_counts.get(u, 0) }} ahli aktif)</span></label>
+        {% endfor %}
+      </div>
+      <div class="actions"><button class="primary">Masukkan ke senarai</button></div>
+    </form>
+    <p class="muted"><b>Langkah 2.</b> Salin mesej ini dan tampal ke grup WhatsApp / Broadcast List unit.</p>
+    <pre class="preview" id="share-text">{{ share_text }}</pre>
+    <div class="actions">
+      <button type="button" onclick="this.closest('dialog').close()">Tutup</button>
+      <button type="button" id="copy-share" onclick="navigator.clipboard.writeText(document.getElementById('share-text').textContent).then(() => { this.textContent = 'Disalin!'; })">Salin mesej</button>
+      <a class="button primary" href="{{ share_url }}" target="_blank" rel="noopener">Buka WhatsApp</a>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="send">
   <form method="post" action="/events/{{ event.id }}/send" class="form">
     <h2>Hantar panggilan WhatsApp</h2>
@@ -72,6 +96,7 @@
 </dialog>
 {% endblock %}
 {% block scripts %}
+{% if open_share %}<script>document.getElementById("share").showModal();</script>{% endif %}
 <script>window.RANGKON = {eventId: {{ event.id }}, units: {{ units|tojson }}, simulate: {{ (provider == "simulate")|tojson }}};</script>
 <script src="/static/dashboard.js"></script>
 {% endblock %}

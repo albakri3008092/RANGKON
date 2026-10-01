@@ -3,7 +3,7 @@
   let data = null;
   let unit = "";
 
-  const WA = { pending: "Menunggu", sent: "Dihantar", delivered: "Sampai", read: "Dibaca", failed: "Gagal" };
+  const WA = { group: "Pautan grup", pending: "Menunggu", sent: "Dihantar", delivered: "Sampai", read: "Dibaca", failed: "Gagal" };
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const pct = (n, d) => (d ? Math.round((n / d) * 100) : 0);
 
@@ -74,7 +74,7 @@
     html += r.rsvp === "accepted"
       ? `<button class="sim" data-act="rsvp" data-v="clear" data-id="${r.id}">Batal terima</button>`
       : `<button class="sim" data-act="rsvp" data-v="accepted" data-id="${r.id}">Tanda terima</button>`;
-    if (simulate && r.status !== "pending" && r.status !== "failed") {
+    if (simulate && r.wa_sent) {
       html += `<div class="sub">Simulasi: ${["delivered", "read", "TERIMA", "TOLAK"].map((a) => `<button class="sim" data-act="sim" data-v="${a}" data-id="${r.id}">${a}</button>`).join(" ")}</div>`;
     }
     return html;
@@ -93,7 +93,7 @@
           <td>${rsvpCell(r)}</td>
           <td>${r.attended_at ? `<span class="badge b-attended">HADIR</span><div class="sub">${esc(r.attended_at)} (${esc(r.checkin_method)})</div>` : "-"}</td>
           <td>${actions(r)}</td></tr>`).join("")
-      : `<tr><td colspan="7" class="empty">${data.rows.length ? "Tiada rekod sepadan" : "Belum ada panggilan dihantar. Tekan <b>Hantar WhatsApp</b>."}</td></tr>`;
+      : `<tr><td colspan="7" class="empty">${data.rows.length ? "Tiada rekod sepadan" : "Belum ada panggilan. Tekan <b>Kongsi ke grup WhatsApp</b>."}</td></tr>`;
   }
 
   function render() {
