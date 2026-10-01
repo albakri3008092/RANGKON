@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
@@ -36,6 +37,22 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Rangkon", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, max_age=60 * 60 * 12)
+
+
+@app.middleware("http")
+async def same_origin_posts(request: Request, call_next):
+    if request.method == "POST" and not request.url.path.startswith("/webhook/"):
+        origin = request.headers.get("origin") or request.headers.get("referer")
+        allowed = {
+            request.headers.get("host"),
+            request.headers.get("x-forwarded-host"),
+            urlsplit(settings.public_base_url).netloc,
+        }
+        if origin and urlsplit(origin).netloc not in allowed:
+            return PlainTextResponse("Permintaan luar ditolak", status_code=403)
+    return await call_next(request)
+
+
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=BASE / "templates")
 templates.env.globals["units"] = settings.units
@@ -247,7 +264,11 @@ def toggle_member(member_id: int, db: Db):
 @app.post("/members/{member_id}/delete", dependencies=[Admin])
 def delete_member(request: Request, member_id: int, db: Db):
     member = db.get(Member, member_id)
-    if member:
+    if member and member.invitations:
+        member.active = False
+        db.commit()
+        flash(request, f"{member.name} ada rekod panggilan; dinyahaktifkan (rekod dikekalkan)")
+    elif member:
         db.delete(member)
         db.commit()
         flash(request, f"{member.name} dipadam")
@@ -449,7 +470,10 @@ def kiosk_checkin(request: Request, event_id: int, db: Db, phone: Annotated[str,
         inv = db.scalar(
             select(Invitation)
             .join(Member)
-            .where(Invitation.event_id == event_id, Member.phone == normalized)
+            .where(
+                Invitation.event_id == event_id,
+                (Invitation.phone == normalized) | (Member.phone == normalized),
+            )
         )
     if inv is None:
         result = {"ok": False, "message": f"Tiada panggilan untuk nombor {phone}"}
@@ -489,11 +513,7 @@ def _public(request: Request, inv: Invitation, note: str | None = None) -> HTMLR
 
 @app.get("/c/{token}", response_class=HTMLResponse)
 def public_page(request: Request, token: str, db: Db):
-    inv = _by_token(db, token)
-    if inv.status in ("sent", "delivered"):
-        services.apply_status(inv, "read", services.now())
-        db.commit()
-    return _public(request, inv)
+    return _public(request, _by_token(db, token))
 
 
 @app.post("/c/{token}/rsvp", response_class=HTMLResponse)
@@ -502,7 +522,6 @@ def public_rsvp(request: Request, token: str, db: Db, answer: Annotated[str, For
     if answer not in ("accepted", "declined"):
         raise HTTPException(400)
     services.set_rsvp(inv, answer, "link")
-    services.apply_status(inv, "read", services.now())
     db.commit()
     note = "Terima kasih, panggilan DITERIMA." if answer == "accepted" else "Jawapan TOLAK direkod."
     return _public(request, inv, note)
@@ -538,7 +557,8 @@ def webhook_verify(request: Request):
 @app.post("/webhook/whatsapp")
 async def webhook_receive(request: Request, db: Db):
     body = await request.body()
-    if not valid_signature(
+    must_sign = settings.whatsapp_app_secret or settings.whatsapp_provider == "cloud"
+    if must_sign and not valid_signature(
         settings.whatsapp_app_secret, body, request.headers.get("X-Hub-Signature-256")
     ):
         raise HTTPException(403, "Tandatangan tidak sah")

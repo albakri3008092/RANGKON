@@ -85,13 +85,19 @@ class CloudApiProvider:
             )
         except httpx.HTTPError as exc:
             raise SendError(f"Ralat rangkaian: {exc}") from exc
-        data = resp.json() if resp.content else {}
-        if resp.status_code >= 400:
-            err = data.get("error", {})
-            raise SendError(err.get("message") or f"HTTP {resp.status_code}")
         try:
-            return data["messages"][0]["id"]
-        except (KeyError, IndexError) as exc:
+            data = resp.json() if resp.content else {}
+        except ValueError:
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        if resp.status_code >= 400:
+            err = data.get("error")
+            message = err.get("message") if isinstance(err, dict) else None
+            raise SendError(message or f"HTTP {resp.status_code}")
+        try:
+            return str(data["messages"][0]["id"])
+        except (KeyError, IndexError, TypeError) as exc:
             raise SendError("Respons WhatsApp tiada message id") from exc
 
 
@@ -102,9 +108,7 @@ def build_provider(settings: Settings) -> Provider:
 
 
 def valid_signature(app_secret: str, body: bytes, header: str | None) -> bool:
-    if not app_secret:
-        return True
-    if not header or not header.startswith("sha256="):
+    if not app_secret or not header or not header.startswith("sha256="):
         return False
     expected = hmac.new(app_secret.encode(), body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, header.removeprefix("sha256="))

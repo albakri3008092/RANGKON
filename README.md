@@ -40,7 +40,7 @@ Untuk mesej sebenar guna **WhatsApp Business Cloud API** (Meta):
    `WHATSAPP_TOKEN` (token kekal System User) dan `WHATSAPP_PHONE_NUMBER_ID`.
 2. Tetapkan `RANGKON_WHATSAPP_PROVIDER=cloud` dan `RANGKON_PUBLIC_BASE_URL` (URL HTTPS awam aplikasi).
 3. Webhook: URL `https://<domain>/webhook/whatsapp`, verify token = `WHATSAPP_VERIFY_TOKEN`,
-   langgan medan `messages`. Tetapkan `WHATSAPP_APP_SECRET` supaya tandatangan disahkan.
+   langgan medan `messages`. `WHATSAPP_APP_SECRET` **wajib** dalam mod `cloud`; webhook tanpa tandatangan sah ditolak.
 4. Mesej pertama kepada ahli (di luar tetingkap 24 jam) mesti guna **template** yang diluluskan Meta.
    Tetapkan `WHATSAPP_TEMPLATE_NAME` / `WHATSAPP_TEMPLATE_LANG`; parameter badan template
    dihantar mengikut susunan `{{1}}=nama, {{2}}=tajuk, {{3}}=lokasi, {{4}}=masa, {{5}}=pautan`.

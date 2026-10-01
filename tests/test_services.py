@@ -58,7 +58,7 @@ def test_valid_signature():
     assert valid_signature("s3cret", body, sig)
     assert not valid_signature("s3cret", body, "sha256=bad")
     assert not valid_signature("s3cret", body, None)
-    assert valid_signature("", body, None)
+    assert not valid_signature("", body, None)
 
 
 def _cloud(handler, template=""):
@@ -96,4 +96,13 @@ def test_cloud_provider_template_and_error():
         "P",
     ]
     with pytest.raises(SendError, match="bad number"):
+        p.send("60123", "hi", PARAMS)
+
+
+def test_cloud_provider_non_json_error():
+    p = _cloud(lambda r: httpx.Response(502, text="<html>Bad Gateway</html>"))
+    with pytest.raises(SendError, match="HTTP 502"):
+        p.send("60123", "hi", PARAMS)
+    p = _cloud(lambda r: httpx.Response(200, text="not json"))
+    with pytest.raises(SendError):
         p.send("60123", "hi", PARAMS)

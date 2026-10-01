@@ -108,7 +108,7 @@ def message_params(inv: Invitation) -> dict[str, str]:
         "lokasi": e.location,
         "masa": format_dt(e.starts_at),
         "pautan": checkin_url(inv),
-        "unit": m.unit,
+        "unit": inv.unit,
     }
 
 
@@ -175,7 +175,9 @@ def import_members_csv(db: Session, content: str, default_unit: str | None) -> d
     for row in reader:
         name = (row.get(colmap["name"]) or "").strip()
         phone = normalize_phone(row.get(colmap["phone"]) or "")
-        unit = match_unit(row.get(colmap["unit"], "") if "unit" in colmap else "") or default_unit
+        unit = match_unit(row.get(colmap["unit"], "") if "unit" in colmap else "") or match_unit(
+            default_unit or ""
+        )
         if not name or not phone or not unit:
             result["skipped"] += 1
             continue
@@ -215,7 +217,11 @@ def create_invitations(db: Session, event: Event, units: Iterable[str]) -> list[
     members = db.scalars(
         select(Member).where(Member.active.is_(True), Member.unit.in_(units))
     ).all()
-    new = [Invitation(event_id=event.id, member_id=m.id) for m in members if m.id not in existing]
+    new = [
+        Invitation(event_id=event.id, member_id=m.id, unit=m.unit, phone=m.phone)
+        for m in members
+        if m.id not in existing
+    ]
     db.add_all(new)
     db.commit()
     return [inv.id for inv in new]
@@ -234,7 +240,8 @@ def deliver(factory: sessionmaker, invitation_ids: list[int], provider: Provider
             params = message_params(inv)
             body = render_message(inv.event.message, params)
             try:
-                inv.wa_message_id = provider.send(inv.member.phone, body, params)
+                inv.phone = inv.member.phone
+                inv.wa_message_id = provider.send(inv.phone, body, params)
                 inv.status = "sent"
                 inv.error = None
                 inv.sent_at = now()
@@ -262,12 +269,14 @@ def apply_status(inv: Invitation, status: str, at: datetime, error: str | None =
 
 
 def record_reply(inv: Invitation, text: str, at: datetime) -> None:
+    apply_status(inv, "read", at)
+    if inv.replied_at and at < inv.replied_at:
+        return
     inv.reply_text = text[:1000]
     inv.replied_at = at
     answer = parse_rsvp(text)
-    if answer:
+    if answer and not (inv.rsvp_at and at < inv.rsvp_at):
         set_rsvp(inv, answer, "whatsapp", at)
-    apply_status(inv, "read", at)
 
 
 def handle_webhook(db: Session, payload: dict) -> dict[str, int]:
@@ -310,8 +319,7 @@ def _invitation_for_reply(db: Session, msg: dict) -> Invitation | None:
         return None
     return db.scalar(
         select(Invitation)
-        .join(Member)
-        .where(Member.phone == phone, Invitation.sent_at.is_not(None))
+        .where(Invitation.phone == phone, Invitation.sent_at.is_not(None))
         .order_by(Invitation.sent_at.desc())
         .limit(1)
     )
@@ -373,18 +381,16 @@ def event_dashboard(db: Session, event: Event) -> dict:
     overall = _empty_stats()
     by_unit = {u: _empty_stats() for u in settings.units}
     rows = []
-    for inv in sorted(
-        invitations, key=lambda i: (unit_sort_key(i.member.unit), i.member.name.lower())
-    ):
+    for inv in sorted(invitations, key=lambda i: (unit_sort_key(i.unit), i.member.name.lower())):
         _add(overall, inv)
-        _add(by_unit.setdefault(inv.member.unit, _empty_stats()), inv)
+        _add(by_unit.setdefault(inv.unit, _empty_stats()), inv)
         rows.append(
             {
                 "id": inv.id,
                 "name": inv.member.name,
                 "rank": inv.member.rank,
-                "phone": inv.member.phone,
-                "unit": inv.member.unit,
+                "phone": inv.phone,
+                "unit": inv.unit,
                 "status": inv.status,
                 "error": inv.error,
                 "rsvp": inv.rsvp,

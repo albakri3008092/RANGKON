@@ -208,3 +208,52 @@ def test_webhook_verify_and_signature(client, monkeypatch):
     assert r.status_code == 403
     monkeypatch.setattr(main.settings, "whatsapp_app_secret", "s")
     assert client.post("/webhook/whatsapp", json={}).status_code == 403
+
+
+def _reply(phone, text, ts):
+    return {
+        "entry": [
+            {
+                "changes": [
+                    {
+                        "value": {
+                            "messages": [{"from": phone, "timestamp": ts, "text": {"body": text}}]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+
+def test_invitation_keeps_unit_phone_and_history(admin):
+    _member(admin, "Ali", "0123456789", "Bn 1")
+    event_id = _event(admin)
+    admin.post(f"/events/{event_id}/send", data={"target_units": ["Bn 1"]})
+    with SessionLocal() as db:
+        inv = db.query(Invitation).one()
+        token, member_id = inv.token, inv.member_id
+    admin.get(f"/c/{token}")
+    d = admin.get(f"/api/events/{event_id}/dashboard").json()
+    assert d["rows"][0]["status"] == "sent"
+
+    admin.post(f"/members/{member_id}", data={"name": "Ali", "phone": "0131111111", "unit": "Bn 2"})
+    admin.post("/webhook/whatsapp", json=_reply("60123456789", "TERIMA", "1700000600"))
+    admin.post("/webhook/whatsapp", json=_reply("60123456789", "TOLAK", "1700000000"))
+    d = admin.get(f"/api/events/{event_id}/dashboard").json()
+    assert d["units"]["Bn 1"]["accepted"] == 1 and d["units"]["Bn 2"]["total"] == 0
+    assert d["rows"][0]["phone"] == "60123456789"
+
+    r = admin.post(f"/members/{member_id}/delete")
+    assert "dinyahaktifkan" in r.text
+    assert admin.get(f"/api/events/{event_id}/dashboard").json()["overall"]["total"] == 1
+
+
+def test_cloud_webhook_requires_signature(client, monkeypatch):
+    monkeypatch.setattr(main.settings, "whatsapp_provider", "cloud")
+    assert client.post("/webhook/whatsapp", json={}).status_code == 403
+
+
+def test_cross_origin_post_rejected(admin):
+    r = admin.post("/members/1/delete", headers={"origin": "https://evil.example"})
+    assert r.status_code == 403
